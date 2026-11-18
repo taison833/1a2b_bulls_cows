@@ -1,0 +1,2118 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V2.2 非同步安全版｜和風猜數字 1A2B｜Bulls &amp; Cows（零依賴完整推理版）</title>
+  <style>
+    /* =========================================================================
+       1. 全局設計令牌與純原生響應式樣式 (100% Zero-CDN 離線獨立執行)
+       ========================================================================= */
+    :root {
+      --bg-washi: #f4efe6;
+      --bg-card: rgba(255, 253, 249, 0.94);
+      --border-soft: rgba(158, 126, 86, 0.34);
+      --wood-light: #edd09e;
+      --wood-mid: #dca860;
+      --wood-dark: #c58d42;
+      --wood-rim: #966122;
+      --ink-primary: #1f1d1a;
+      --ink-secondary: #575046;
+      --ink-muted: #7a7165;
+      --accent-vermilion: #c83e37;
+      --accent-vermilion-dark: #9e2b25;
+      --accent-jade: #1e7a5c;
+      --accent-jade-dark: #13523d;
+      --accent-gold: #c98a1e;
+      --font-serif: "Noto Serif TC", "Songti TC", "PMingLiU", "STSong", Georgia, serif;
+      --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Heiti TC", system-ui, -apple-system, sans-serif;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --shadow-sm: 0 2px 8px rgba(58, 38, 14, 0.08);
+      --shadow-md: 0 12px 26px -6px rgba(58, 38, 14, 0.22);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-washi);
+      background-image:
+        radial-gradient(rgba(168, 140, 100, 0.16) 1px, transparent 0),
+        radial-gradient(rgba(168, 140, 100, 0.09) 1px, transparent 0);
+      background-size: 28px 28px;
+      background-position: 0 0, 14px 14px;
+      color: var(--ink-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .font-serif-jp {
+      font-family: var(--font-serif);
+    }
+
+    /* 螢幕閱讀器專用即時語音播報區 */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* 高對比鍵盤無障礙焦點環 */
+    button:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 3px solid var(--accent-vermilion);
+      outline-offset: 2px;
+    }
+
+    /* =========================================================================
+       2. 頂部標題列與快捷操作
+       ========================================================================= */
+    .app-header {
+      width: 100%;
+      max-width: 1260px;
+      margin: 0 auto;
+      padding: 16px 16px 8px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .seal-badge {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      background: linear-gradient(145deg, #d4473f, #b5322b);
+      color: #faf6ef;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-serif);
+      font-weight: 900;
+      font-size: 1.15rem;
+      letter-spacing: -0.5px;
+      border: 1.5px solid var(--accent-vermilion-dark);
+      box-shadow: 0 4px 10px rgba(181, 50, 43, 0.28);
+      flex-shrink: 0;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .app-title {
+      font-family: var(--font-serif);
+      font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+      font-weight: 900;
+      color: var(--ink-primary);
+      letter-spacing: 0.03em;
+    }
+
+    .subtitle-tag {
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: rgba(158, 107, 41, 0.12);
+      color: #7c5119;
+      border: 1px solid rgba(158, 107, 41, 0.25);
+    }
+
+    .app-desc {
+      font-size: 0.84rem;
+      color: var(--ink-secondary);
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* =========================================================================
+       3. 通用按鈕樣式
+       ========================================================================= */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-family: var(--font-sans);
+      font-weight: 700;
+      font-size: 0.86rem;
+      padding: 8px 13px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.15s ease, filter 0.15s ease;
+      user-select: none;
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .btn-secondary {
+      background: linear-gradient(180deg, #ffffff 0%, #efe8dc 100%);
+      border-color: #c8b9a3;
+      color: var(--ink-primary);
+      box-shadow: 0 3px 0 #b5a58d, 0 4px 8px rgba(58, 38, 14, 0.08);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: linear-gradient(180deg, #ffffff 0%, #f7f3eb 100%);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #b5a58d;
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #d84a42 0%, #b5322b 100%);
+      border-color: #9e2b25;
+      color: #ffffff;
+      box-shadow: 0 4px 0 #7f1f1a, 0 6px 14px rgba(181, 50, 43, 0.28);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      filter: brightness(1.06);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #7f1f1a;
+    }
+
+    .btn-jade {
+      background: linear-gradient(180deg, #24916e 0%, #19694f 100%);
+      border-color: var(--accent-jade-dark);
+      color: #ffffff;
+      box-shadow: 0 4px 0 #0f4231, 0 6px 14px rgba(30, 122, 92, 0.26);
+    }
+
+    .btn-jade:hover:not(:disabled) {
+      filter: brightness(1.06);
+      transform: translateY(-1px);
+    }
+
+    .btn-jade:active:not(:disabled) {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #0f4231;
+    }
+
+    .btn-hint {
+      background: linear-gradient(180deg, #fffdf7 0%, #f5ebd4 100%);
+      border-color: #d4a64a;
+      color: #7d5410;
+      box-shadow: 0 3px 0 #c29438, 0 4px 8px rgba(145, 102, 22, 0.12);
+    }
+
+    .btn-hint:hover:not(:disabled) {
+      background: linear-gradient(180deg, #ffffff 0%, #faefd7 100%);
+      transform: translateY(-1px);
+    }
+
+    .btn-hint:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #c29438;
+    }
+
+    /* =========================================================================
+       4. 主佈局網格 (左側設定與戰績 / 右側推理主舞台)
+       ========================================================================= */
+    .main-grid {
+      width: 100%;
+      max-width: 1260px;
+      margin: 0 auto;
+      padding: 6px 16px 24px;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+      .arena-column {
+        order: 1;
+      }
+      .sidebar-column {
+        order: 2;
+      }
+    }
+
+    .sidebar-column {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .panel-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .panel-heading {
+      font-family: var(--font-serif);
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: var(--ink-primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .panel-heading-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .heading-bar {
+      width: 4px;
+      height: 16px;
+      border-radius: 99px;
+      background: var(--accent-vermilion);
+      display: inline-block;
+    }
+
+    .heading-bar.gold { background: var(--accent-gold); }
+    .heading-bar.jade { background: var(--accent-jade); }
+
+    .field-label {
+      display: block;
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--ink-muted);
+      margin-bottom: 6px;
+      letter-spacing: 0.04em;
+    }
+
+    .segmented-control {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px;
+      background: rgba(196, 182, 160, 0.35);
+      padding: 4px;
+      border-radius: 11px;
+      margin-bottom: 10px;
+    }
+
+    .seg-btn {
+      border: none;
+      background: transparent;
+      padding: 8px 6px;
+      border-radius: 8px;
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--ink-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .seg-btn:hover:not(:disabled) { color: var(--ink-primary); }
+
+    .seg-btn.active {
+      background: #ffffff;
+      color: var(--accent-vermilion);
+      font-weight: 700;
+      box-shadow: 0 2px 5px rgba(58, 38, 14, 0.12);
+    }
+
+    .mode-note {
+      font-size: 0.76rem;
+      color: var(--ink-secondary);
+      background: rgba(158, 107, 41, 0.08);
+      border: 1px solid rgba(158, 107, 41, 0.18);
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      line-height: 1.45;
+    }
+
+    /* =========================================================================
+       5. 互動式數字排除筆記本 (0~9 四態循環印章)
+       ========================================================================= */
+    .note-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 0.71rem;
+      color: var(--ink-muted);
+      margin-bottom: 9px;
+    }
+
+    .scratchpad-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 7px;
+    }
+
+    .scratch-btn {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      border-radius: 11px;
+      border: 1.5px solid rgba(158, 126, 86, 0.35);
+      background: #ffffff;
+      font-family: var(--font-serif);
+      font-size: 1.15rem;
+      font-weight: 900;
+      color: var(--ink-primary);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.14s ease;
+      user-select: none;
+    }
+
+    .scratch-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(58, 38, 14, 0.12);
+    }
+
+    .scratch-tag {
+      font-family: var(--font-sans);
+      font-size: 0.62rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-top: 2px;
+    }
+
+    /* 狀態 1：確定排除 (✕) */
+    .scratch-btn[data-mark="exclude"] {
+      background: #f3efe9;
+      border-color: #c7bfb3;
+      color: #a39b8f;
+      text-decoration: line-through;
+    }
+    .scratch-btn[data-mark="exclude"] .scratch-tag {
+      color: var(--accent-vermilion);
+    }
+
+    /* 狀態 2：確定包含 (✓) */
+    .scratch-btn[data-mark="include"] {
+      background: #ecfdf5;
+      border-color: var(--accent-jade);
+      color: var(--accent-jade-dark);
+      box-shadow: 0 2px 6px rgba(30, 122, 92, 0.18);
+    }
+    .scratch-btn[data-mark="include"] .scratch-tag {
+      color: var(--accent-jade);
+    }
+
+    /* 狀態 3：鎖定位置 (★) */
+    .scratch-btn[data-mark="lock"] {
+      background: #fffbeb;
+      border-color: var(--accent-gold);
+      color: #92400e;
+      box-shadow: 0 2px 8px rgba(201, 138, 30, 0.28);
+    }
+    .scratch-btn[data-mark="lock"] .scratch-tag {
+      color: #b45309;
+    }
+
+    /* =========================================================================
+       6. 跨局戰績統計卡片
+       ========================================================================= */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .stat-cell {
+      background: rgba(244, 239, 230, 0.75);
+      border: 1px solid rgba(158, 126, 86, 0.22);
+      border-radius: 11px;
+      padding: 8px 5px;
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 0.69rem;
+      color: var(--ink-muted);
+      display: block;
+    }
+
+    .stat-val {
+      font-family: var(--font-serif);
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--ink-primary);
+    }
+
+    .stat-val.win { color: var(--accent-vermilion); }
+    .stat-val.jade { color: var(--accent-jade); }
+
+    .stats-subrow {
+      font-size: 0.73rem;
+      color: var(--ink-secondary);
+    }
+
+    .text-link-btn {
+      background: none;
+      border: none;
+      color: var(--ink-muted);
+      font-size: 0.73rem;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .text-link-btn:hover { color: var(--accent-vermilion); }
+
+    /* =========================================================================
+       7. 右側推理主舞台：狀態儀表板、密碼槽、鍵盤與推演紀錄
+       ========================================================================= */
+    .arena-column {
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+      width: 100%;
+    }
+
+    .status-banner {
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg);
+      padding: 12px 16px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .phase-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .phase-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent-vermilion);
+      flex-shrink: 0;
+      animation: dotPulse 1.5s infinite ease-in-out;
+    }
+
+    .phase-dot.setup {
+      background: var(--accent-gold);
+    }
+
+    @keyframes dotPulse {
+      0%, 100% { transform: scale(0.95); opacity: 0.85; }
+      50% { transform: scale(1.22); opacity: 1; }
+    }
+
+    .micro-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--ink-muted);
+      letter-spacing: 0.05em;
+    }
+
+    .phase-title {
+      font-family: var(--font-serif);
+      font-size: 1.06rem;
+      font-weight: 800;
+      color: var(--ink-primary);
+    }
+
+    .feedback-pill {
+      flex: 1;
+      min-width: 210px;
+      text-align: center;
+      padding: 6px 12px;
+      border-radius: 12px;
+      background: #fef8eb;
+      border: 1px solid #ebd29b;
+      color: #7c5112;
+      font-size: 0.81rem;
+      font-weight: 600;
+    }
+
+    .combo-counter-box {
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .combo-num {
+      font-family: var(--font-serif);
+      font-size: 1.32rem;
+      font-weight: 900;
+      color: var(--accent-jade);
+    }
+
+    /* 資訊熵推理提示橫幅 */
+    .entropy-hint-panel {
+      background: linear-gradient(135deg, #fffdf8 0%, #f8f0df 100%);
+      border: 1.5px solid #d9b466;
+      border-radius: var(--radius-md);
+      padding: 11px 15px;
+      box-shadow: var(--shadow-sm);
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .entropy-hint-panel.visible {
+      display: flex;
+    }
+
+    .entropy-hint-text {
+      font-size: 0.83rem;
+      color: var(--ink-primary);
+      line-height: 1.45;
+    }
+
+    .hint-code-badge {
+      display: inline-block;
+      font-family: monospace;
+      font-size: 1rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      padding: 1px 8px;
+      border-radius: 6px;
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+      margin: 0 3px;
+    }
+
+    /* 榧木質感猜測輸入台 */
+    .kaya-console {
+      background:
+        repeating-linear-gradient(
+          91deg,
+          rgba(135, 86, 30, 0.04) 0px,
+          rgba(135, 86, 30, 0.04) 2px,
+          transparent 2px,
+          transparent 9px
+        ),
+        radial-gradient(circle at 35% 25%, var(--wood-light) 0%, var(--wood-mid) 56%, var(--wood-dark) 100%);
+      border: 2px solid var(--wood-rim);
+      border-radius: 22px;
+      padding: 16px 18px 18px;
+      box-shadow: var(--shadow-md), inset 0 2px 3px rgba(255, 245, 224, 0.7);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .secret-banner-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: rgba(255, 252, 246, 0.88);
+      border: 1px solid rgba(110, 72, 26, 0.25);
+      border-radius: 12px;
+      padding: 8px 13px;
+      font-size: 0.82rem;
+    }
+
+    .secret-code-pill {
+      font-family: monospace;
+      font-weight: 900;
+      font-size: 0.95rem;
+      letter-spacing: 3px;
+      padding: 2px 10px;
+      border-radius: 8px;
+      background: rgba(200, 62, 55, 0.12);
+      color: var(--accent-vermilion-dark);
+      border: 1px solid rgba(200, 62, 55, 0.25);
+    }
+
+    /* 四位數密碼輸入槽 */
+    .digit-slots-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      max-width: 360px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .digit-slot {
+      aspect-ratio: 1 / 1.08;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #fffdf9 0%, #f5ede0 100%);
+      border: 2.5px solid rgba(110, 72, 26, 0.42);
+      box-shadow: inset 0 2px 5px rgba(58, 38, 14, 0.14), 0 4px 10px rgba(58, 38, 14, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-serif);
+      font-size: clamp(1.75rem, 4vw, 2.35rem);
+      font-weight: 900;
+      color: var(--ink-primary);
+      transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+    }
+
+    .digit-slot.active-slot {
+      border-color: var(--accent-vermilion);
+      box-shadow: 0 0 0 3px rgba(200, 62, 55, 0.28), inset 0 2px 4px rgba(58, 38, 14, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .digit-slot.filled {
+      background: #ffffff;
+      border-color: var(--wood-rim);
+    }
+
+    .slot-cursor {
+      width: 3px;
+      height: 44%;
+      background: var(--accent-vermilion);
+      border-radius: 2px;
+      animation: cursorBlink 1s infinite;
+    }
+
+    @keyframes cursorBlink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    /* 觸控 0-9 數字鍵盤與功能鍵 */
+    .keypad-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      max-width: 440px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .num-key {
+      padding: 11px 0;
+      border-radius: 12px;
+      border: 1px solid #c8b9a3;
+      background: linear-gradient(180deg, #ffffff 0%, #f1eadf 100%);
+      box-shadow: 0 3px 0 #b5a58d, 0 4px 8px rgba(58, 38, 14, 0.12);
+      font-family: var(--font-serif);
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--ink-primary);
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.15s ease;
+      user-select: none;
+    }
+
+    .num-key:hover:not(:disabled) {
+      background: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .num-key:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #b5a58d;
+    }
+
+    .num-key:disabled {
+      opacity: 0.36;
+      cursor: not-allowed;
+      background: #e5ded2;
+      box-shadow: none;
+      transform: translateY(2px);
+    }
+
+    .console-actions-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.6fr;
+      gap: 8px;
+      max-width: 440px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* =========================================================================
+       8. 猜測歷史推演紀錄列表（支援單欄破關 / 雙欄人機互猜對照）
+       ========================================================================= */
+    .logs-arena {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .logs-arena.dual-mode {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    @media (max-width: 680px) {
+      .logs-arena.dual-mode {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .log-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      max-height: 310px;
+    }
+
+    .log-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      padding-right: 4px;
+      min-height: 130px;
+    }
+
+    .log-list::-webkit-scrollbar { width: 5px; }
+    .log-list::-webkit-scrollbar-thumb {
+      background: rgba(158, 107, 41, 0.38);
+      border-radius: 999px;
+    }
+
+    .log-empty {
+      text-align: center;
+      color: var(--ink-muted);
+      font-size: 0.82rem;
+      padding: 36px 8px;
+      font-style: italic;
+    }
+
+    .log-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: rgba(248, 245, 238, 0.96);
+      border: 1px solid rgba(158, 126, 86, 0.24);
+      border-radius: 11px;
+      padding: 7px 11px;
+    }
+
+    .log-row.win-row {
+      background: #fef2f2;
+      border-color: rgba(200, 62, 55, 0.45);
+    }
+
+    .log-digits {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .mini-digit-box {
+      width: 26px;
+      height: 30px;
+      border-radius: 6px;
+      background: #ffffff;
+      border: 1px solid rgba(158, 126, 86, 0.35);
+      font-family: var(--font-serif);
+      font-weight: 900;
+      font-size: 0.95rem;
+      color: var(--ink-primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ab-badges {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .badge-a {
+      font-family: monospace;
+      font-weight: 900;
+      font-size: 0.86rem;
+      padding: 3px 8px;
+      border-radius: 7px;
+      background: rgba(200, 62, 55, 0.13);
+      color: var(--accent-vermilion);
+      border: 1px solid rgba(200, 62, 55, 0.3);
+    }
+
+    .badge-b {
+      font-family: monospace;
+      font-weight: 900;
+      font-size: 0.86rem;
+      padding: 3px 8px;
+      border-radius: 7px;
+      background: rgba(201, 138, 30, 0.14);
+      color: #8c5c0e;
+      border: 1px solid rgba(201, 138, 30, 0.32);
+    }
+
+    .badge-zero {
+      font-family: monospace;
+      font-weight: 800;
+      font-size: 0.84rem;
+      padding: 3px 9px;
+      border-radius: 7px;
+      background: rgba(122, 113, 101, 0.12);
+      color: var(--ink-muted);
+    }
+
+    /* =========================================================================
+       9. 彈窗 Modal 樣式
+       ========================================================================= */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(24, 18, 12, 0.58);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal-card {
+      background: #faf6ef;
+      border: 2px solid var(--wood-rim);
+      border-radius: 24px;
+      max-width: 500px;
+      width: 100%;
+      padding: 24px;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-center { text-align: center; }
+
+    .modal-seal {
+      width: 62px;
+      height: 62px;
+      margin: 0 auto 14px;
+      border-radius: 18px;
+      background: var(--accent-vermilion);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-serif);
+      font-size: 1.85rem;
+      font-weight: 900;
+      box-shadow: 0 8px 18px rgba(200, 62, 55, 0.32);
+    }
+
+    .modal-seal.lose {
+      background: #44403c;
+      color: #fef3c7;
+    }
+
+    .modal-title {
+      font-family: var(--font-serif);
+      font-size: 1.55rem;
+      font-weight: 900;
+      color: var(--ink-primary);
+      margin-bottom: 8px;
+    }
+
+    .modal-desc {
+      font-size: 0.9rem;
+      color: var(--ink-secondary);
+      margin-bottom: 18px;
+      line-height: 1.55;
+    }
+
+    .modal-summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      background: rgba(158, 107, 41, 0.08);
+      border: 1px solid rgba(158, 107, 41, 0.2);
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 18px;
+      font-size: 0.85rem;
+    }
+
+    .modal-btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .rule-section {
+      background: #ffffff;
+      border: 1px solid rgba(158, 126, 86, 0.25);
+      border-radius: 14px;
+      padding: 13px 15px;
+      margin-bottom: 12px;
+      font-size: 0.86rem;
+      color: var(--ink-secondary);
+    }
+
+    .rule-section h4 {
+      font-family: var(--font-serif);
+      color: var(--ink-primary);
+      font-size: 0.96rem;
+      margin-bottom: 6px;
+    }
+
+    .rule-section ul { padding-left: 18px; }
+    .rule-section li { margin-bottom: 4px; }
+
+    .app-footer {
+      text-align: center;
+      padding: 10px 16px 16px;
+      font-size: 0.76rem;
+      color: var(--ink-muted);
+    }
+  </style>
+</head>
+<body>
+  <!-- 螢幕閱讀器即時語音播報區 -->
+  <div id="ariaLiveRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- 頂部標題列 -->
+  <header class="app-header">
+    <div class="brand-group">
+      <div class="seal-badge" aria-hidden="true">1A2B</div>
+      <div>
+        <div class="title-row">
+          <h1 class="app-title">和風猜數字 1A2B</h1>
+          <span class="subtitle-tag">Bulls &amp; Cows · 5,040 態資訊熵推理引擎</span>
+        </div>
+        <p class="app-desc">
+          4 位不重複密碼（0～9） · <strong>A</strong> 代表數字與位置全對 · <strong>B</strong> 代表數字對但位置錯
+        </p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" id="hintBtn" class="btn btn-hint" onclick="showEntropyHint()">
+        <span>💡 局勢提示</span>
+      </button>
+      <button type="button" id="giveUpBtn" class="btn btn-secondary" onclick="giveUpGame()">
+        <span>🏳 放棄並揭曉謎底</span>
+      </button>
+      <button type="button" class="btn btn-secondary" onclick="openRulesModal()">
+        <span>📖 規則與推理秘笈</span>
+      </button>
+      <button type="button" class="btn btn-primary" onclick="resetGame()">
+        <span>↻ 開啟新局</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 主遊戲區 -->
+  <main class="main-grid">
+    <!-- 左側設定、數字排除筆記本與統計 -->
+    <aside class="sidebar-column">
+      <!-- 1. 對局模式卡片 -->
+      <section class="panel-card" aria-label="對局模式設定">
+        <div class="panel-heading">
+          <div class="panel-heading-title">
+            <span class="heading-bar"></span>
+            <span>對局模式設定</span>
+          </div>
+        </div>
+
+        <span class="field-label">遊玩模式</span>
+        <div class="segmented-control" role="group" aria-label="遊玩模式">
+          <button type="button" id="mode-solo" class="seg-btn active" onclick="setGameMode('solo')">單人極限破關</button>
+          <button type="button" id="mode-duel" class="seg-btn" onclick="setGameMode('duel')">人機互猜對戰</button>
+        </div>
+
+        <div id="modeDescriptionBox" class="mode-note">
+          <strong>單人極限破關：</strong>電腦隨機生成 4 位不重複密碼，挑戰用最少手數破解 <code>4A0B</code>，即時顯示數學剩餘可能組合數。
+        </div>
+      </section>
+
+      <!-- 2. 互動式數字排除筆記本 -->
+      <section class="panel-card" aria-label="互動式數字排除筆記本">
+        <div class="panel-heading">
+          <div class="panel-heading-title">
+            <span class="heading-bar gold"></span>
+            <span>數字排除筆記本</span>
+          </div>
+          <button type="button" class="text-link-btn" onclick="clearScratchpad()">清空標記</button>
+        </div>
+
+        <div class="note-legend">
+          <span>點擊循環標記：</span>
+          <span>⬜ 未標記</span>
+          <span>→ <strong style="color: var(--accent-vermilion);">✕ 排除</strong></span>
+          <span>→ <strong style="color: var(--accent-jade);">✓ 包含</strong></span>
+          <span>→ <strong style="color: #b45309;">★ 鎖定</strong></span>
+        </div>
+
+        <div id="scratchpadGrid" class="scratchpad-grid" role="group" aria-label="0到9數字推理標記"></div>
+      </section>
+
+      <!-- 3. 跨局戰績統計卡片 -->
+      <section class="panel-card" aria-label="跨局戰績統計">
+        <div class="panel-heading">
+          <div class="panel-heading-title">
+            <span class="heading-bar jade"></span>
+            <span>跨局戰績統計</span>
+          </div>
+          <button type="button" class="text-link-btn" onclick="resetStats()">歸零統計</button>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-cell">
+            <span class="stat-label">單人最佳步數</span>
+            <span class="stat-val jade" id="statBestSteps">-</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-label">單人平均步數</span>
+            <span class="stat-val" id="statAvgSteps">-</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-label">人機對戰勝率</span>
+            <span class="stat-val win" id="statDuelWinRate">0%</span>
+          </div>
+        </div>
+        <div class="stats-subrow" id="statSummaryText">
+          單人破關：0 局 ｜ 人機互猜：0 勝 0 負
+        </div>
+      </section>
+    </aside>
+
+    <!-- 右側推理主舞台 -->
+    <section class="arena-column" aria-label="猜數字推理操作舞台">
+      <!-- 頂部狀態與剩餘可能組合數儀表板 -->
+      <div class="status-banner">
+        <div class="phase-box">
+          <span id="phaseDot" class="phase-dot" aria-hidden="true"></span>
+          <div>
+            <div class="micro-label">當前回合狀態</div>
+            <div id="phaseTitleText" class="phase-title">第 1 手 · 請輸入 4 位不重複數字</div>
+          </div>
+        </div>
+
+        <div id="feedbackBanner" class="feedback-pill">
+          可直接敲擊實體鍵盤 0～9，或點擊下方觸控鍵盤
+        </div>
+
+        <div class="combo-counter-box">
+          <div class="micro-label">數學剩餘可能組合</div>
+          <div>
+            <span id="remainingCandidatesCount" class="combo-num">5,040</span>
+            <span style="font-size: 0.76rem; color: var(--ink-secondary);">/ 5,040 種</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 資訊熵推理提示橫幅 -->
+      <div id="entropyHintPanel" class="entropy-hint-panel" role="region" aria-label="資訊熵推理提示">
+        <div id="entropyHintText" class="entropy-hint-text"></div>
+        <button type="button" id="applyHintBtn" class="btn btn-hint" style="padding: 6px 11px; font-size: 0.78rem;" onclick="applyHintDigits()">
+          ✨ 一鍵填入建議數字
+        </button>
+      </div>
+
+      <!-- 榧木密碼輸入台 -->
+      <div class="kaya-console">
+        <!-- 人機對戰模式下的我方秘密密碼列 -->
+        <div id="playerSecretBanner" class="secret-banner-row" style="display: none;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>🔐 我方秘密密碼（供電腦推理）：</span>
+            <span id="playerSecretDisplay" class="secret-code-pill">設定中</span>
+          </div>
+          <button type="button" id="randomSecretBtn" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.76rem;" onclick="randomizePlayerSecret()">
+            🎲 一鍵隨機生成密碼
+          </button>
+        </div>
+
+        <!-- 四位數密碼輸入槽 -->
+        <div class="digit-slots-row" id="digitSlotsRow" aria-label="四位數輸入顯示區"></div>
+
+        <!-- 0-9 觸控數字鍵盤 -->
+        <div class="keypad-grid" id="keypadGrid" role="group" aria-label="數字鍵盤"></div>
+
+        <!-- 清除 / 退格 / 確認按鈕列 -->
+        <div class="console-actions-row">
+          <button type="button" id="clearInputBtn" class="btn btn-secondary" onclick="clearCurrentInput()">
+            <span>清空</span>
+          </button>
+          <button type="button" id="backspaceBtn" class="btn btn-secondary" onclick="backspaceInput()">
+            <span>⌫ 退格</span>
+          </button>
+          <button type="button" id="submitGuessBtn" class="btn btn-primary" onclick="submitCurrentInput()" disabled>
+            <span id="submitBtnLabel">✓ 確認猜測</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 猜測推演紀錄區（單人破關顯示 1 欄；人機對戰並排顯示 2 欄） -->
+      <div id="logsArena" class="logs-arena">
+        <!-- 我方猜測紀錄 -->
+        <div class="log-card" aria-label="我方猜測推理紀錄">
+          <div class="panel-heading">
+            <div class="panel-heading-title">
+              <span class="heading-bar"></span>
+              <span>我方猜測紀錄</span>
+            </div>
+            <span id="playerGuessCountBadge" class="count-pill">已猜 0 手</span>
+          </div>
+          <div id="playerGuessList" class="log-list">
+            <div class="log-empty">尚未提出猜測，建議開局先試 0123 或 1234</div>
+          </div>
+        </div>
+
+        <!-- 電腦猜測紀錄（僅人機互猜對戰模式顯示） -->
+        <div id="aiLogCard" class="log-card" style="display: none;" aria-label="電腦 AI 猜測推理紀錄">
+          <div class="panel-heading">
+            <div class="panel-heading-title">
+              <span class="heading-bar jade"></span>
+              <span>🤖 電腦 AI 推理紀錄</span>
+            </div>
+            <span id="aiGuessCountBadge" class="count-pill">已猜 0 手</span>
+          </div>
+          <div id="aiGuessList" class="log-list">
+            <div class="log-empty">待你設定完成秘密密碼後，電腦將開始推理</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    經典邏輯推理遊戲 · 1A2B 拆數字（Bulls &amp; Cows · 5,040 全排列資訊熵引擎 · 100% 離線原生單檔版）
+  </footer>
+
+  <!-- 勝負與揭曉謎底彈窗 -->
+  <div id="gameOverModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card modal-center">
+      <div id="modalIconBadge" class="modal-seal">勝</div>
+      <h3 id="modalTitle" class="modal-title">4A0B！密碼成功破解！</h3>
+      <p id="modalSubtitle" class="modal-desc">太神啦！你成功推導出了正確的四位數密碼。</p>
+
+      <div class="modal-summary-grid">
+        <div>
+          <span class="micro-label" style="display:block;">本局謎底密碼</span>
+          <strong id="modalSecretReveal" style="font-family: monospace; font-size: 1.25rem; letter-spacing: 3px; color: var(--accent-vermilion);">0000</strong>
+        </div>
+        <div>
+          <span class="micro-label" style="display:block;">破關總手數</span>
+          <strong id="modalStepsSummary">共 6 手</strong>
+        </div>
+      </div>
+
+      <div class="modal-btn-row">
+        <button type="button" class="btn btn-secondary" onclick="closeGameOverModal()">檢視推演紀錄</button>
+        <button type="button" class="btn btn-primary" onclick="resetGame()">再戰一局</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 規則與推理秘笈彈窗 -->
+  <div id="rulesModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="rulesModalTitle">
+    <div class="modal-card">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(158, 126, 86, 0.3);">
+        <h3 id="rulesModalTitle" class="font-serif-jp" style="font-size: 1.25rem; font-weight: 900;">
+          1A2B 拆數字規則與資訊熵推理秘笈
+        </h3>
+        <button type="button" class="btn btn-secondary" style="padding: 4px 10px;" onclick="closeRulesModal()" aria-label="關閉視窗">✕</button>
+      </div>
+
+      <div class="rule-section">
+        <h4>1. 基本規則與 1A2B 定義</h4>
+        <ul>
+          <li>密碼由 <code>0～9</code> 中挑選 <strong>4 個互不重複的數字</strong>組成（開頭可以是 <code>0</code>，共有 $10 \times 9 \times 8 \times 7 = 5,040$ 種可能）。</li>
+          <li><strong>A（Bulls）：</strong>猜測的數字存在於密碼中，且<strong>位置完全正確</strong>。</li>
+          <li><strong>B（Cows）：</strong>猜測的數字存在於密碼中，但<strong>位置不正確</strong>。</li>
+          <li>例如謎底為 <code>5281</code>，猜 <code>5218</code> 時，<code>5、2</code> 位置正確，<code>1、8</code> 數字對但位置互換，故得到 <strong><code>2A2B</code></strong>。</li>
+        </ul>
+      </div>
+
+      <div class="rule-section">
+        <h4>2. 高手必學推理心法（平均 5～6 手必破）</h4>
+        <ul>
+          <li><strong>開局二分覆蓋法：</strong>前兩手猜完全不重疊的 8 個數字（例如 <code>0123</code> 與 <code>4567</code>），直接掌握 <code>8、9</code> 是否在謎底中。</li>
+          <li><strong>善用左側「數字排除筆記本」：</strong>遇到 <code>0A0B</code> 時立刻將這 4 個數字標記為 <code>✕ 排除</code>；確定在謎底內的數字標記為 <code>✓ 包含</code>。</li>
+          <li><strong>資訊熵推理提示器（💡 局勢提示）：</strong>本遊戲內建完整 5,040 態篩選引擎，會計算哪一組猜測能將剩餘候選空間切分得最均勻（最大資訊增益），最多 7 步內保證 100% 破解！</li>
+        </ul>
+      </div>
+
+      <button type="button" class="btn btn-primary" style="width: 100%; margin-top: 6px;" onclick="closeRulesModal()">
+        我明白了，開始推理
+      </button>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * =========================================================================
+     * 1. 全域 5,040 種 4 位不重複密碼組合生成與高速比對引擎
+     * =========================================================================
+     */
+    const ALL_PERMUTATIONS = []; // 5040 筆 [d0, d1, d2, d3]
+    const ALL_PERM_STRINGS = []; // 5040 筆 "0123" 字串
+
+    (function initAllPermutations() {
+      for (let a = 0; a <= 9; a++) {
+        for (let b = 0; b <= 9; b++) {
+          if (b === a) continue;
+          for (let c = 0; c <= 9; c++) {
+            if (c === a || c === b) continue;
+            for (let d = 0; d <= 9; d++) {
+              if (d === a || d === b || d === c) continue;
+              ALL_PERMUTATIONS.push([a, b, c, d]);
+              ALL_PERM_STRINGS.push(`${a}${b}${c}${d}`);
+            }
+          }
+        }
+      }
+    })();
+
+    /**
+     * 計算兩組 4 位數字陣列的 A 與 B 數量（回傳整數 code = A * 10 + B，便於高速比對）
+     */
+    function evaluateABCode(secret, guess) {
+      let a = 0;
+      let b = 0;
+      for (let i = 0; i < 4; i++) {
+        if (secret[i] === guess[i]) {
+          a++;
+        } else if (
+          secret[0] === guess[i] ||
+          secret[1] === guess[i] ||
+          secret[2] === guess[i] ||
+          secret[3] === guess[i]
+        ) {
+          b++;
+        }
+      }
+      return a * 10 + b;
+    }
+
+    function decodeAB(code) {
+      return { a: Math.floor(code / 10), b: code % 10 };
+    }
+
+    function getRandomSecret() {
+      const idx = Math.floor(Math.random() * ALL_PERMUTATIONS.length);
+      return [...ALL_PERMUTATIONS[idx]];
+    }
+
+    /**
+     * 根據歷史猜測紀錄，從 5,040 種全組合中過濾出所有符合條件的剩餘可能密碼
+     */
+    function filterValidCandidates(history) {
+      if (history.length === 0) {
+        return ALL_PERMUTATIONS;
+      }
+      const valid = [];
+      for (let i = 0; i < ALL_PERMUTATIONS.length; i++) {
+        const cand = ALL_PERMUTATIONS[i];
+        let ok = true;
+        for (let h = 0; h < history.length; h++) {
+          const item = history[h];
+          if (evaluateABCode(cand, item.digits) !== item.abCode) {
+            ok = false;
+            break;
+          }
+        }
+        if (ok) valid.push(cand);
+      }
+      return valid;
+    }
+
+    /**
+     * 資訊熵（Shannon Entropy / Minimax 均勻切分）最佳下一手推薦演算法：
+     * - 若候選數 <= 2，直接挑第一個候選拼一擊必殺。
+     * - 若候選數為 5,040（開局第 1 手），直接推薦經典高對稱開局組合。
+     * - 否則對候選集（及部分外部高區分度探針）計算 14 種 A/B 結果分佈的資訊熵 H = -Σ p * log2(p)，
+     *   優先挑選資訊熵最高、且優先位於當前候選集內的組合。
+     */
+    function computeBestEntropyGuess(candidates, history = []) {
+      if (!Array.isArray(candidates) || !Array.isArray(history) || candidates.length === 0) return null;
+      const historySet = new Set(history.map((item) => Array.isArray(item.digits) ? item.digits.join('') : ''));
+      const used = (digits) => historySet.has(digits.join(''));
+      if (candidates.length === 1) return used(candidates[0]) ? null : [...candidates[0]];
+      if (candidates.length === 2) { const available = candidates.filter((c) => !used(c)); return available.length ? [...available[0]] : null; }
+      if (history.length === 0) { const openers=[[0,1,2,3],[1,2,3,4],[0,2,4,6],[1,3,5,7]]; return [...openers[Math.floor(Math.random()*openers.length)]]; }
+      let evalPool;
+      if (candidates.length > 260) { const step=Math.max(1,Math.floor(candidates.length/260)); evalPool=[]; for(let i=0;i<candidates.length;i+=step) if(!used(candidates[i])) evalPool.push(candidates[i]); }
+      else evalPool=candidates.filter((c)=>!used(c));
+      const candidateSet=new Set(candidates.map((c)=>c.join(''))), probeMap=new Map();
+      const addProbe=(probe)=>{ if(!Array.isArray(probe)||probe.length!==4)return; const key=probe.join(''); if(!historySet.has(key)&&!probeMap.has(key))probeMap.set(key,probe); };
+      evalPool.forEach(addProbe); if(candidates.length>=3&&candidates.length<=45)for(let i=0;i<ALL_PERMUTATIONS.length;i+=47)addProbe(ALL_PERMUTATIONS[i]);
+      if(!probeMap.size){const f=candidates.find((c)=>!used(c));return f?[...f]:null;}
+      const buckets=new Int32Array(45);let bestScore=-Infinity,bestGuess=null;
+      for(const probe of probeMap.values()){buckets.fill(0);for(const c of candidates)buckets[evaluateABCode(c,probe)]++;let entropy=0;for(let k=0;k<=40;k++){const count=buckets[k];if(count){const p=count/candidates.length;entropy-=p*Math.log2(p);}}const score=entropy+(candidateSet.has(probe.join(''))?0.08:0);if(score>bestScore){bestScore=score;bestGuess=probe;}}
+      return bestGuess?[...bestGuess]:null;
+    }
+
+    /**
+     * =========================================================================
+     * 2. 跨局戰績統計 (localStorage 持久化)
+     * =========================================================================
+     */
+    const STATS_STORAGE_KEY = 'bulls_cows_1a2b_stats_v1';
+
+    function loadStats() {
+      try {
+        const raw = localStorage.getItem(STATS_STORAGE_KEY);
+        if (raw) {
+          const p = JSON.parse(raw);
+          return {
+            soloWins: Number(p.soloWins) || 0,
+            soloTotalSteps: Number(p.soloTotalSteps) || 0,
+            soloBestSteps: p.soloBestSteps ? Number(p.soloBestSteps) : null,
+            duelWins: Number(p.duelWins) || 0,
+            duelLosses: Number(p.duelLosses) || 0
+          };
+        }
+      } catch (e) {}
+      return { soloWins: 0, soloTotalSteps: 0, soloBestSteps: null, duelWins: 0, duelLosses: 0 };
+    }
+
+    let stats = loadStats();
+
+    function saveStats() {
+      try {
+        localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats));
+      } catch (e) {}
+    }
+
+    function recordSoloWin(steps) {
+      stats.soloWins++;
+      stats.soloTotalSteps += steps;
+      if (stats.soloBestSteps === null || steps < stats.soloBestSteps) {
+        stats.soloBestSteps = steps;
+      }
+      saveStats();
+      renderStatsUI();
+    }
+
+    function recordDuelResult(playerWon) {
+      if (playerWon) stats.duelWins++;
+      else stats.duelLosses++;
+      saveStats();
+      renderStatsUI();
+    }
+
+    function resetStats() {
+      stats = { soloWins: 0, soloTotalSteps: 0, soloBestSteps: null, duelWins: 0, duelLosses: 0 };
+      saveStats();
+      renderStatsUI();
+      announceLive('戰績統計已歸零');
+    }
+
+    function renderStatsUI() {
+      document.getElementById('statBestSteps').textContent =
+        stats.soloBestSteps !== null ? `${stats.soloBestSteps} 步` : '-';
+
+      const avg = stats.soloWins > 0 ? (stats.soloTotalSteps / stats.soloWins).toFixed(1) : '-';
+      document.getElementById('statAvgSteps').textContent = avg !== '-' ? `${avg} 步` : '-';
+
+      const totalDuels = stats.duelWins + stats.duelLosses;
+      const winRate = totalDuels > 0 ? Math.round((stats.duelWins / totalDuels) * 100) : 0;
+      document.getElementById('statDuelWinRate').textContent = `${winRate}%`;
+
+      document.getElementById('statSummaryText').textContent =
+        `單人破關：${stats.soloWins} 局 ｜ 人機互猜：${stats.duelWins} 勝 ${stats.duelLosses} 負`;
+    }
+
+    /**
+     * =========================================================================
+     * 3. 遊戲核心狀態
+     * =========================================================================
+     */
+    const SCRATCH_STATES = ['none', 'exclude', 'include', 'lock'];
+    const SCRATCH_LABELS = {
+      none: '未標',
+      exclude: '✕ 排除',
+      include: '✓ 包含',
+      lock: '★ 鎖定'
+    };
+
+    let state = {
+      mode: 'solo',               // 'solo' | 'duel'
+      phase: 'guessing',          // 'set-secret' | 'guessing' | 'gameover'
+      aiSecret: [],               // 電腦秘密密碼 [d0, d1, d2, d3]
+      playerSecret: [],           // 人機互猜模式下玩家的秘密密碼
+      currentDigits: [],          // 目前輸入框中的數字 (0~4 顆)
+      playerHistory: [],          // { step, digits, abCode, a, b }
+      aiHistory: [],              // { step, digits, abCode, a, b }
+      scratchMarks: Array(10).fill('none'),
+      hintDigits: null,
+      isAiThinking: false,
+      roundId: 0,
+      resultRecorded: false
+    };
+
+    let aiTimer = null;
+    let gameOverTimer = null;
+    let announceTimer = null;
+
+    function clearPendingTimers() {
+      clearTimeout(aiTimer); clearTimeout(gameOverTimer); clearTimeout(announceTimer);
+      aiTimer = gameOverTimer = announceTimer = null;
+    }
+
+    function invalidateAsyncTasks() {
+      clearPendingTimers();
+      state.roundId++;
+    }
+
+    function announceLive(msg) {
+      const region = document.getElementById('ariaLiveRegion');
+      if (!region) return;
+      clearTimeout(announceTimer); announceTimer = null;
+      region.textContent = '';
+      const expectedRoundId = state.roundId;
+      announceTimer = setTimeout(() => {
+        announceTimer = null;
+        if (state.roundId === expectedRoundId) region.textContent = String(msg ?? '');
+      }, 20);
+    }
+
+    function scheduleGameOver(playerWon, gaveUp = false) {
+      clearTimeout(gameOverTimer); gameOverTimer = null;
+      const expectedRoundId = state.roundId;
+      const expectedPlayerSteps = state.playerHistory.length;
+      const expectedAiSteps = state.aiHistory.length;
+      gameOverTimer = setTimeout(() => {
+        gameOverTimer = null;
+        if (state.roundId !== expectedRoundId || state.phase !== 'gameover') return;
+        if (state.playerHistory.length !== expectedPlayerSteps || state.aiHistory.length !== expectedAiSteps) return;
+        handleGameOver(playerWon, gaveUp);
+      }, 320);
+    }
+
+    function showFeedback(text) {
+      const banner = document.getElementById('feedbackBanner');
+      if (banner) banner.textContent = text;
+    }
+
+    /**
+     * =========================================================================
+     * 4. 數字輸入、觸控鍵盤與實體鍵盤綁定
+     * =========================================================================
+     */
+    function inputDigit(d) {
+      if (state.phase === 'gameover' || state.isAiThinking) return;
+      if (state.currentDigits.length >= 4) return;
+      if (state.currentDigits.includes(d)) return;
+
+      state.currentDigits.push(d);
+      updateUI();
+    }
+
+    function backspaceInput() {
+      if (state.phase === 'gameover' || state.isAiThinking) return;
+      if (state.currentDigits.length === 0) return;
+
+      state.currentDigits.pop();
+      updateUI();
+    }
+
+    function clearCurrentInput() {
+      if (state.phase === 'gameover' || state.isAiThinking) return;
+      state.currentDigits = [];
+      updateUI();
+    }
+
+    function randomizePlayerSecret() {
+      if (state.mode !== 'duel' || state.phase !== 'set-secret') return;
+      state.currentDigits = getRandomSecret();
+      showFeedback(`已隨機填入秘密密碼 ${state.currentDigits.join('')}，點擊「確認設定秘密密碼」開始對決！`);
+      updateUI();
+    }
+
+    function submitCurrentInput() {
+      if (state.phase === 'gameover' || state.isAiThinking) return;
+      if (state.currentDigits.length !== 4) return;
+
+      // 階段 A：人機互猜對戰模式下的「設定我方秘密密碼」
+      if (state.mode === 'duel' && state.phase === 'set-secret') {
+        state.playerSecret = [...state.currentDigits];
+        state.currentDigits = [];
+        state.phase = 'guessing';
+        showFeedback('秘密密碼設定完成！現在請輸入你對電腦密碼的第一手猜測');
+        announceLive('我方秘密密碼設定完成，請輸入第一手猜測');
+        updateUI();
+        return;
+      }
+
+      // 階段 B：正式猜測電腦密碼
+      const guessDigits = [...state.currentDigits];
+      const guessKey = guessDigits.join('');
+      if (state.playerHistory.some((item) => item.digits.join('') === guessKey)) {
+        showFeedback(`你已經猜過 ${guessKey}，請改用其他組合`);
+        announceLive(`你已經猜過 ${guessKey}，請改用其他組合`);
+        state.currentDigits = [...guessDigits];
+        updateUI();
+        return;
+      }
+      state.currentDigits = [];
+      state.hintDigits = null;
+      hideEntropyHintPanel();
+
+      const abCode = evaluateABCode(state.aiSecret, guessDigits);
+      const { a, b } = decodeAB(abCode);
+      const step = state.playerHistory.length + 1;
+
+      state.playerHistory.push({
+        step,
+        digits: guessDigits,
+        abCode,
+        a,
+        b
+      });
+
+      const guessStr = guessDigits.join('');
+      announceLive(`第 ${step} 手猜測 ${guessStr}，結果為 ${a}A${b}B`);
+
+      // 檢查玩家是否猜中 4A0B
+      if (a === 4) {
+        state.phase = 'gameover';
+        updateUI();
+        scheduleGameOver(true, false);
+        return;
+      }
+
+      // 若為單人極限破關模式，繼續下一手
+      if (state.mode === 'solo') {
+        const remaining = filterValidCandidates(state.playerHistory).length;
+        showFeedback(`第 ${step} 手【${guessStr}】得到 ${a}A${b}B！剩餘可能密碼已縮小至 ${remaining.toLocaleString()} 種`);
+        updateUI();
+        return;
+      }
+
+      // 若為人機互猜對戰模式，輪到電腦 AI 推理猜測玩家密碼
+      state.isAiThinking = true;
+      showFeedback(`你猜【${guessStr}】得到 ${a}A${b}B，電腦 AI 正在推理你的密碼...`);
+      updateUI();
+      scheduleAiGuess();
+    }
+
+    /**
+     * =========================================================================
+     * 5. 電腦 AI 資訊熵推理（人機互猜對戰模式）
+     * =========================================================================
+     */
+    function scheduleAiGuess() {
+      clearTimeout(aiTimer);
+      aiTimer = setTimeout(() => {
+        if (state.phase !== 'guessing') return;
+
+        const aiValidCandidates = filterValidCandidates(state.aiHistory);
+        if (aiValidCandidates.length === 0) { state.isAiThinking=false; showFeedback('AI 推理資料發生矛盾，請重新開啟一局'); updateUI(); return; }
+        const aiGuessDigits = computeBestEntropyGuess(aiValidCandidates, state.aiHistory);
+        if (!aiGuessDigits) {
+          state.isAiThinking = false;
+          console.error('AI 無法產生新的有效猜測');
+          showFeedback('AI 無法產生新的有效猜測，請重新開始對局');
+          announceLive('電腦無法產生新的有效猜測');
+          updateUI();
+          return;
+        }
+
+        const aiGuessKey = aiGuessDigits.join('');
+        const aiAlreadyGuessed = state.aiHistory.some(
+          (item) => Array.isArray(item.digits) && item.digits.join('') === aiGuessKey
+        );
+
+        if (aiAlreadyGuessed) {
+          state.isAiThinking = false;
+          console.error('AI 推理引擎嘗試重複猜測：', aiGuessKey);
+          showFeedback(`AI 偵測到重複猜測 ${aiGuessKey}，請重新開始對局`);
+          announceLive(`電腦偵測到重複猜測 ${aiGuessKey}，推理已停止`);
+          updateUI();
+          return;
+        }
+        const abCode = evaluateABCode(state.playerSecret, aiGuessDigits);
+        const { a, b } = decodeAB(abCode);
+        const step = state.aiHistory.length + 1;
+
+        state.aiHistory.push({
+          step,
+          digits: aiGuessDigits,
+          abCode,
+          a,
+          b
+        });
+
+        state.isAiThinking = false;
+        const aiGuessStr = aiGuessDigits.join('');
+        announceLive(`電腦第 ${step} 手猜測 ${aiGuessStr}，結果為 ${a}A${b}B`);
+
+        if (a === 4) {
+          state.phase = 'gameover';
+          updateUI();
+          scheduleGameOver(false, false);
+          return;
+        }
+
+        showFeedback(`電腦猜你【${aiGuessStr}】得到 ${a}A${b}B，輪到你反擊！`);
+        updateUI();
+      }, 580);
+    }
+
+    /**
+     * =========================================================================
+     * 6. 資訊熵推理提示器（💡 局勢提示 & 一鍵填入）
+     * =========================================================================
+     */
+    function showEntropyHint() {
+      if (state.phase !== 'guessing' || state.isAiThinking) return;
+
+      const candidates = filterValidCandidates(state.playerHistory);
+      if (candidates.length === 0) { state.hintDigits=null; const panel=document.getElementById('entropyHintPanel'); const textEl=document.getElementById('entropyHintText'); textEl.innerHTML='⚠️ <strong>目前線索彼此矛盾。</strong>找不到符合全部紀錄的密碼。'; panel.classList.add('visible'); updateUI(); return; }
+      const recommended = computeBestEntropyGuess(candidates, state.playerHistory);
+      state.hintDigits = recommended;
+
+      const panel = document.getElementById('entropyHintPanel');
+      const textEl = document.getElementById('entropyHintText');
+      const codeStr = recommended.join('');
+
+      if (candidates.length === 1) {
+        textEl.innerHTML = `
+          🎯 邏輯推演已完全收斂！全場僅剩唯一符合所有線索的密碼：
+          <span class="hint-code-badge">${codeStr}</span>
+        `;
+      } else if (candidates.length <= 5) {
+        const allList = candidates.map((c) => `<code>${c.join('')}</code>`).join('、');
+        textEl.innerHTML = `
+          🔍 目前僅剩 <strong>${candidates.length}</strong> 種可能（${allList}），高資訊熵推薦優先試探：
+          <span class="hint-code-badge">${codeStr}</span>
+        `;
+      } else {
+        textEl.innerHTML = `
+          🧠 從目前 <strong>${candidates.length.toLocaleString()}</strong> 種可能密碼中計算最大資訊增益，建議下一手猜測：
+          <span class="hint-code-badge">${codeStr}</span>（可最均勻切分剩餘可能性）
+        `;
+      }
+
+      panel.classList.add('visible');
+      announceLive(`資訊熵推理建議下一手猜測 ${codeStr}`);
+    }
+
+    function applyHintDigits() {
+      if (state.phase !== 'guessing' || state.isAiThinking || !state.hintDigits) return;
+
+      const hintKey = state.hintDigits.join('');
+      const alreadyGuessed = state.playerHistory.some(
+        (item) => Array.isArray(item.digits) && item.digits.join('') === hintKey
+      );
+
+      if (alreadyGuessed) {
+        state.hintDigits = null;
+        hideEntropyHintPanel();
+        showFeedback(`提示 ${hintKey} 已經使用過，請重新產生提示`);
+        announceLive(`提示 ${hintKey} 已經使用過，請重新產生提示`);
+        updateUI();
+        return;
+      }
+
+      state.currentDigits = [...state.hintDigits];
+      showFeedback(`已一鍵填入建議數字 ${hintKey}，點擊「確認猜測」即可送出`);
+      announceLive(`已一鍵填入建議數字 ${hintKey}`);
+      updateUI();
+    }
+
+    function hideEntropyHintPanel() {
+      const panel = document.getElementById('entropyHintPanel');
+      if (panel) panel.classList.remove('visible');
+    }
+
+    /**
+     * =========================================================================
+     * 7. 互動式數字排除筆記本
+     * =========================================================================
+     */
+    function cycleScratchMark(digit) {
+      const cur = state.scratchMarks[digit];
+      const nextIdx = (SCRATCH_STATES.indexOf(cur) + 1) % SCRATCH_STATES.length;
+      state.scratchMarks[digit] = SCRATCH_STATES[nextIdx];
+      renderScratchpad();
+      announceLive(`數字 ${digit} 標記為 ${SCRATCH_LABELS[SCRATCH_STATES[nextIdx]]}`);
+    }
+
+    function clearScratchpad() {
+      state.scratchMarks = Array(10).fill('none');
+      renderScratchpad();
+      announceLive('已清空數字排除筆記本');
+    }
+
+    function renderScratchpad() {
+      const grid = document.getElementById('scratchpadGrid');
+      grid.innerHTML = '';
+
+      for (let d = 0; d <= 9; d++) {
+        const mark = state.scratchMarks[d];
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'scratch-btn';
+        btn.dataset.mark = mark;
+        btn.setAttribute('aria-label', `數字 ${d}，目前標記：${SCRATCH_LABELS[mark]}`);
+        btn.innerHTML = `
+          <span>${d}</span>
+          <span class="scratch-tag">${SCRATCH_LABELS[mark]}</span>
+        `;
+        btn.addEventListener('click', () => cycleScratchMark(d));
+        grid.appendChild(btn);
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 8. 勝負結算、放棄揭曉與模式切換
+     * =========================================================================
+     */
+    function giveUpGame() {
+      if (state.phase === 'gameover' || state.isAiThinking) return;
+      state.phase = 'gameover';
+      hideEntropyHintPanel();
+      updateUI();
+      handleGameOver(false, true);
+    }
+
+    function handleGameOver(playerWon, gaveUp) {
+      if (state.phase !== 'gameover') return;
+      const modal = document.getElementById('gameOverModal');
+      const badge = document.getElementById('modalIconBadge');
+      const title = document.getElementById('modalTitle');
+      const subtitle = document.getElementById('modalSubtitle');
+      const secretReveal = document.getElementById('modalSecretReveal');
+      const stepsSummary = document.getElementById('modalStepsSummary');
+
+      secretReveal.textContent = state.aiSecret.join('');
+      const playerSteps = state.playerHistory.length;
+
+      if (gaveUp) {
+        badge.textContent = '揭';
+        badge.className = 'modal-seal lose';
+        title.textContent = '已揭曉本局謎底';
+        subtitle.textContent = '別氣餒！檢視下方的推演紀錄與數字線索，再挑戰一局吧！';
+        stepsSummary.textContent = `已猜 ${playerSteps} 手`;
+        if (state.mode === 'duel' && !state.resultRecorded) { state.resultRecorded = true; recordDuelResult(false); }
+        announceLive(`本局已結束，謎底為 ${state.aiSecret.join('')}`);
+      } else if (state.mode === 'solo') {
+        recordSoloWin(playerSteps);
+        badge.textContent = '破';
+        badge.className = 'modal-seal';
+        title.textContent = `4A0B！第 ${playerSteps} 手破關！`;
+        subtitle.textContent =
+          playerSteps <= 5
+            ? '神乎其技！你以職業級資訊熵效率破解了四位密碼！'
+            : '邏輯清晰！你成功從 5,040 種組合中鎖定了唯一真解！';
+        stepsSummary.textContent = `共 ${playerSteps} 手破關`;
+        announceLive(`恭喜破關！共用了 ${playerSteps} 手，謎底為 ${state.aiSecret.join('')}`);
+      } else {
+        if (!state.resultRecorded) { state.resultRecorded = true; recordDuelResult(playerWon); }
+        if (playerWon) {
+          badge.textContent = '勝';
+          badge.className = 'modal-seal';
+          title.textContent = '人機對決獲勝！';
+          subtitle.textContent = `你搶先一步破解了電腦密碼（電腦當時猜了 ${state.aiHistory.length} 手）！`;
+          stepsSummary.textContent = `我方 ${playerSteps} 手勝出`;
+          announceLive('恭喜在人機互猜對決中獲勝');
+        } else {
+          badge.textContent = '惜';
+          badge.className = 'modal-seal lose';
+          title.textContent = '電腦 AI 搶先破解！';
+          subtitle.textContent = `電腦在第 ${state.aiHistory.length} 手成功推導出你的秘密密碼 ${state.playerSecret.join('')}。`;
+          stepsSummary.textContent = `電腦 ${state.aiHistory.length} 手破關`;
+          announceLive(`電腦 AI 在第 ${state.aiHistory.length} 手搶先猜中了你的密碼`);
+        }
+      }
+
+      modal.classList.add('open');
+    }
+
+    function closeGameOverModal() {
+      document.getElementById('gameOverModal').classList.remove('open');
+    }
+
+    function openRulesModal() {
+      document.getElementById('rulesModal').classList.add('open');
+    }
+
+    function closeRulesModal() {
+      document.getElementById('rulesModal').classList.remove('open');
+    }
+
+    function setGameMode(newMode) {
+      state.mode = newMode;
+      document.getElementById('mode-solo').classList.toggle('active', newMode === 'solo');
+      document.getElementById('mode-duel').classList.toggle('active', newMode === 'duel');
+
+      const desc = document.getElementById('modeDescriptionBox');
+      if (newMode === 'solo') {
+        desc.innerHTML = '<strong>單人極限破關：</strong>電腦隨機生成 4 位不重複密碼，挑戰用最少手數破解 <code>4A0B</code>，即時顯示數學剩餘可能組合數。';
+      } else {
+        desc.innerHTML = '<strong>人機互猜對戰：</strong>先設定我方 4 位秘密密碼，再與具備 5,040 態資訊熵推理能力的電腦輪流猜測，先猜中 <code>4A0B</code> 者勝！';
+      }
+
+      resetGame();
+    }
+
+    function resetGame() {
+      invalidateAsyncTasks();
+      closeGameOverModal();
+      hideEntropyHintPanel();
+
+      state.aiSecret = getRandomSecret();
+      state.playerSecret = [];
+      state.currentDigits = [];
+      state.playerHistory = [];
+      state.aiHistory = [];
+      state.scratchMarks = Array(10).fill('none');
+      state.hintDigits = null;
+      state.isAiThinking = false;
+      state.resultRecorded = false;
+
+      if (state.mode === 'solo') {
+        state.phase = 'guessing';
+        showFeedback('新局開始！請輸入 4 個不重複數字（支援實體鍵盤 0～9）');
+        announceLive('單人極限破關新局開始，請輸入四位不重複數字');
+      } else {
+        state.phase = 'set-secret';
+        showFeedback('【步驟 1】請先設定你的 4 位秘密密碼，或點擊「一鍵隨機生成密碼」');
+        announceLive('人機互猜對戰開始，請先設定我方四位秘密密碼');
+      }
+
+      renderScratchpad();
+      updateUI();
+    }
+
+    /**
+     * =========================================================================
+     * 9. 畫面同步渲染
+     * =========================================================================
+     */
+    function updateUI() {
+      const isDuel = state.mode === 'duel';
+      const isSetSecret = state.phase === 'set-secret';
+      const isGameOver = state.phase === 'gameover';
+      const locked = isGameOver || state.isAiThinking;
+
+      // 1. 頂部狀態與剩餘候選組合數
+      const candidates = filterValidCandidates(state.playerHistory);
+      document.getElementById('remainingCandidatesCount').textContent = candidates.length.toLocaleString();
+
+      const phaseDot = document.getElementById('phaseDot');
+      const phaseTitle = document.getElementById('phaseTitleText');
+
+      if (isGameOver) {
+        phaseDot.className = 'phase-dot setup';
+        phaseTitle.textContent = `對局結束 · 電腦謎底為 ${state.aiSecret.join('')}`;
+      } else if (isSetSecret) {
+        phaseDot.className = 'phase-dot setup';
+        phaseTitle.textContent = '步驟 1 · 請設定我方秘密密碼';
+      } else if (state.isAiThinking) {
+        phaseDot.className = 'phase-dot';
+        phaseTitle.textContent = '電腦 AI 正在進行資訊熵推演...';
+      } else {
+        phaseDot.className = 'phase-dot';
+        phaseTitle.textContent = `第 ${state.playerHistory.length + 1} 手 · 請輸入猜測密碼`;
+      }
+
+      // 2. 頂部快捷按鈕可用狀態
+      document.getElementById('hintBtn').disabled = !(state.phase === 'guessing' && !state.isAiThinking);
+      document.getElementById('giveUpBtn').disabled = isGameOver || state.isAiThinking;
+
+      // 3. 人機對戰秘密密碼橫幅與雙欄紀錄區顯示切換
+      const secretBanner = document.getElementById('playerSecretBanner');
+      const secretDisplay = document.getElementById('playerSecretDisplay');
+      const randomSecretBtn = document.getElementById('randomSecretBtn');
+      const logsArena = document.getElementById('logsArena');
+      const aiLogCard = document.getElementById('aiLogCard');
+
+      if (isDuel) {
+        secretBanner.style.display = 'flex';
+        logsArena.classList.add('dual-mode');
+        aiLogCard.style.display = 'flex';
+
+        if (isSetSecret) {
+          secretDisplay.textContent = '設定中';
+          randomSecretBtn.style.display = 'inline-flex';
+        } else {
+          secretDisplay.textContent = state.playerSecret.join('');
+          randomSecretBtn.style.display = 'none';
+        }
+      } else {
+        secretBanner.style.display = 'none';
+        logsArena.classList.remove('dual-mode');
+        aiLogCard.style.display = 'none';
+      }
+
+      // 4. 渲染四位數密碼輸入槽
+      const slotsRow = document.getElementById('digitSlotsRow');
+      slotsRow.innerHTML = '';
+
+      for (let i = 0; i < 4; i++) {
+        const slot = document.createElement('div');
+        slot.className = 'digit-slot';
+        const val = state.currentDigits[i];
+
+        if (val !== undefined) {
+          slot.classList.add('filled');
+          slot.textContent = val;
+        } else if (!locked && i === state.currentDigits.length) {
+          slot.classList.add('active-slot');
+          slot.innerHTML = '<span class="slot-cursor" aria-hidden="true"></span>';
+        }
+        slotsRow.appendChild(slot);
+      }
+
+      // 5. 渲染 0-9 觸控數字鍵盤（已輸入數字自動禁用防呆）
+      const keypad = document.getElementById('keypadGrid');
+      keypad.innerHTML = '';
+
+      for (let d = 0; d <= 9; d++) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'num-key';
+        btn.textContent = d;
+        const alreadyUsed = state.currentDigits.includes(d);
+        btn.disabled = locked || alreadyUsed || state.currentDigits.length >= 4;
+        btn.setAttribute('aria-label', `輸入數字 ${d}`);
+        btn.addEventListener('click', () => inputDigit(d));
+        keypad.appendChild(btn);
+      }
+
+      // 6. 更新輸入台下方功能鍵
+      document.getElementById('clearInputBtn').disabled = locked || state.currentDigits.length === 0;
+      document.getElementById('backspaceBtn').disabled = locked || state.currentDigits.length === 0;
+      document.getElementById('submitGuessBtn').disabled = locked || state.currentDigits.length !== 4;
+      document.getElementById('submitBtnLabel').textContent = isSetSecret
+        ? '🔐 確認設定秘密密碼'
+        : '✓ 確認猜測';
+
+      // 7. 渲染推演歷史列表
+      renderHistoryList('playerGuessList', 'playerGuessCountBadge', state.playerHistory, '尚未提出猜測，建議開局先試 0123 或 1234');
+      if (isDuel) {
+        renderHistoryList('aiGuessList', 'aiGuessCountBadge', state.aiHistory, '待你設定完成秘密密碼後，電腦將開始推理');
+      }
+    }
+
+    function renderHistoryList(containerId, badgeId, history, emptyText) {
+      const listEl = document.getElementById(containerId);
+      const badgeEl = document.getElementById(badgeId);
+      badgeEl.textContent = `已猜 ${history.length} 手`;
+
+      if (history.length === 0) {
+        listEl.innerHTML = `<div class="log-empty">${emptyText}</div>`;
+        return;
+      }
+
+      listEl.innerHTML = history
+        .slice()
+        .reverse()
+        .map((item) => {
+          const isWin = item.a === 4;
+          const digitsHtml = item.digits
+            .map((d) => `<span class="mini-digit-box">${d}</span>`)
+            .join('');
+
+          const abHtml =
+            item.a === 0 && item.b === 0
+              ? '<span class="badge-zero">0A 0B（全排除）</span>'
+              : `<span class="badge-a">${item.a}A</span><span class="badge-b">${item.b}B</span>`;
+
+          return `
+            <div class="log-row${isWin ? ' win-row' : ''}">
+              <div class="log-digits">
+                <span style="font-family: monospace; color: var(--ink-muted); font-size: 0.78rem; min-width: 24px;">${item.step}.</span>
+                ${digitsHtml}
+              </div>
+              <div class="ab-badges">${abHtml}</div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    // 實體鍵盤全域監聽（0-9 數字輸入、Backspace 退格、Enter 確認、ESC 關閉彈窗）
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeGameOverModal();
+        closeRulesModal();
+        return;
+      }
+
+      // 若彈窗開啟中，不攔截數字輸入
+      if (
+        document.getElementById('gameOverModal').classList.contains('open') ||
+        document.getElementById('rulesModal').classList.contains('open')
+      ) {
+        return;
+      }
+
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        inputDigit(Number(e.key));
+      } else if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+        backspaceInput();
+      } else if (e.key === 'Enter') {
+        if (state.currentDigits.length === 4) {
+          e.preventDefault();
+          submitCurrentInput();
+        }
+      }
+    });
+
+    // 初始化啟動
+    window.addEventListener('DOMContentLoaded', () => {
+      renderStatsUI();
+      resetGame();
+    });
+  </script>
+</body>
+</html>
